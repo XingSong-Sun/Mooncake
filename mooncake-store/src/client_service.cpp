@@ -16,6 +16,7 @@
 #include <ylt/struct_json/json_reader.h>
 
 #include "transfer_engine.h"
+#include "topology.h"
 #include "transfer_task.h"
 #include "transport/transport.h"
 #include "config.h"
@@ -1635,8 +1636,22 @@ tl::expected<void, ErrorCode> Client::EvictDiskReplica(
     return master_client_.EvictDiskReplica(key, replica_type);
 }
 
+std::vector<int> Client::GetNicNumaNodes() const {
+    std::set<int> nodes;
+    if (!transfer_engine_) return {};
+    auto topo = transfer_engine_->getLocalTopology();
+    if (!topo) return {};
+    for (auto& [name, entry] : topo->getMatrix()) {
+        if (name.rfind("cpu:", 0) != 0 || entry.preferred_hca.empty()) continue;
+        int node = std::stoi(name.substr(4));
+        nodes.insert(node);
+    }
+    return {nodes.begin(), nodes.end()};
+}
+
 tl::expected<void, ErrorCode> Client::MountSegment(
-    const void* buffer, size_t size, const std::string& protocol) {
+    const void* buffer, size_t size, const std::string& protocol,
+    const std::string& location) {
     auto check_result = CheckRegisterMemoryParams(buffer, size);
     if (!check_result) {
         return tl::unexpected(check_result.error());
@@ -1659,8 +1674,8 @@ tl::expected<void, ErrorCode> Client::MountSegment(
         }
     }
 
-    int rc = transfer_engine_->registerLocalMemory(
-        (void*)buffer, size, kWildcardLocation, true, true);
+    int rc = transfer_engine_->registerLocalMemory((void*)buffer, size,
+                                                   location, true, true);
     if (rc != 0) {
         LOG(ERROR) << "register_local_memory_failed base=" << buffer
                    << " size=" << size << ", error=" << rc;
@@ -2332,6 +2347,7 @@ void Client::PingThreadMain(bool is_ha_mode,
         if (ping_result) {
             // Reset ping failure count
             ping_fail_count = 0;
+            last_ping_success_.store(true);
             auto& ping_response = ping_result.value();
             if (ping_response.client_status == ClientStatus::NEED_REMOUNT &&
                 !remount_segment_future.valid()) {
@@ -2349,6 +2365,7 @@ void Client::PingThreadMain(bool is_ha_mode,
         }
 
         ping_fail_count++;
+        last_ping_success_.store(false);
         if (ping_fail_count < max_ping_fail_count) {
             LOG(ERROR) << "Failed to ping master";
             std::this_thread::sleep_for(

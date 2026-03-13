@@ -15,6 +15,7 @@
 #include "mutex.h"
 #include "utils.h"
 #include "rpc_types.h"
+#include <ylt/coro_http/coro_http_server.hpp>
 
 namespace mooncake {
 
@@ -244,6 +245,8 @@ class RealClient : public PyClient {
     long removeAll(bool force = false);
 
     int tearDownAll();
+
+    int health_check() override;
 
     /**
      * @brief Check if an object exists
@@ -483,6 +486,14 @@ class RealClient : public PyClient {
                              const std::vector<int64_t> &sizes);
 
     /**
+     * @brief Releases buffer associated with a specific batch_id.
+     * Called by remote client after transfer completion.
+     * @param batch_id The unique identifier of the batch to release
+     * @return true if batch was found and released, false otherwise
+     */
+    bool release_offload_buffer(uint64_t batch_id);
+
+    /**
      * @brief Retrieves multiple stored objects from a remote service.
      * @param target_rpc_service_addr Address of the remote RPC service (e.g.,
      "ip:port").
@@ -581,6 +592,11 @@ class RealClient : public PyClient {
     int start_ipc_server();
     int stop_ipc_server();
     void ipc_server_func();
+    // Embedded HTTP server for health-check / metrics
+    std::unique_ptr<coro_http::coro_http_server> http_server_;
+    int start_http_server();
+    void stop_http_server();
+
     void handle_ipc_shm_register(int client_sock);
     void handle_ipc_shm_fd_request(int client_sock);
 };

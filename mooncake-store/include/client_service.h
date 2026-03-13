@@ -241,7 +241,8 @@ class Client {
      * @return ErrorCode indicating success/failure
      */
     tl::expected<void, ErrorCode> MountSegment(
-        const void* buffer, size_t size, const std::string& protocol = "tcp");
+        const void* buffer, size_t size, const std::string& protocol = "tcp",
+        const std::string& location = kWildcardLocation);
 
     /**
      * @brief Unregisters a memory segment from master
@@ -418,6 +419,9 @@ class Client {
         return transfer_engine_->getLocalIpAndPort();
     }
 
+    // Return sorted NUMA node IDs that have at least one RDMA NIC.
+    [[nodiscard]] std::vector<int> GetNicNumaNodes() const;
+
     tl::expected<Replica::Descriptor, ErrorCode> GetPreferredReplica(
         const std::vector<Replica::Descriptor>& replica_list);
     /**
@@ -442,6 +446,8 @@ class Client {
         }
         return 0;
     }
+
+    bool is_ping_healthy() const { return last_ping_success_.load(); }
 
    private:
     /**
@@ -582,6 +588,7 @@ class Client {
     MasterViewHelper master_view_helper_;
     std::thread ping_thread_;
     std::atomic<bool> ping_running_{false};
+    std::atomic<bool> last_ping_success_{false};
     void PingThreadMain(bool is_ha_mode, std::string current_master_address);
     void PollAndDispatchTasks();
     void SubmitTask(const TaskAssignment& assignment);
