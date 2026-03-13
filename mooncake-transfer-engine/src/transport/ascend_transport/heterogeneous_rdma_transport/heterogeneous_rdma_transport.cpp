@@ -7,10 +7,16 @@ namespace {
 bool isCpuMemory(void *addr) {
     aclrtPtrAttributes attributes{};
     if (int ret = aclrtPointerGetAttributes(addr, &attributes)) {
-        LOG(ERROR) << "aclrtPointrtGetAttributes error, ret: " << ret;
-        return false;
+        // If ACL cannot identify the pointer, it is not ACL-managed device
+        // memory, so treat it as regular CPU memory.
+        LOG(WARNING) << "aclrtPointerGetAttributes failed for addr " << addr
+                     << ", ret: " << ret
+                     << ". Treating as CPU memory.";
+        return true;
     }
-    return (attributes.location.type == 0);
+    // location.type: 0 = ACL host memory, 1 = device memory, 2 = regular
+    // CPU memory (malloc). Only type 1 is device memory; all others are CPU.
+    return (attributes.location.type != 1);
 }
 }  // namespace
 

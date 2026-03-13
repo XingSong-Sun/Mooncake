@@ -159,8 +159,9 @@ std::string loadNicPriorityMatrix() {
            "], []], "
            " \"cpu:1\": [[" +
            device_names +
-           "], []], "
-           " \"cuda:0\": [[" +
+           "], []], "           " \"npu:0\": [["
+           + device_names +
+           "], []], "           " \"cuda:0\": [[" +
            device_names +
            "], []], "
            " \"musa:0\": [[" +
