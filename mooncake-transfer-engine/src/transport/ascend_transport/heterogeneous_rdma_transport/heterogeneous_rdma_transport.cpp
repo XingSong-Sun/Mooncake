@@ -4,6 +4,10 @@
 namespace mooncake {
 
 namespace {
+// ACL memory location types for aclrtPtrAttributes::location.type:
+//   0 = ACL host memory, 1 = device memory, 2 = regular CPU memory (malloc)
+static constexpr int kDeviceMemoryLocationType = 1;
+
 bool isCpuMemory(void *addr) {
     aclrtPtrAttributes attributes{};
     if (int ret = aclrtPointerGetAttributes(addr, &attributes)) {
@@ -14,9 +18,7 @@ bool isCpuMemory(void *addr) {
                      << ". Treating as CPU memory.";
         return true;
     }
-    // location.type: 0 = ACL host memory, 1 = device memory, 2 = regular
-    // CPU memory (malloc). Only type 1 is device memory; all others are CPU.
-    return (attributes.location.type != 1);
+    return (attributes.location.type != kDeviceMemoryLocationType);
 }
 }  // namespace
 
