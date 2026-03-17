@@ -37,13 +37,11 @@ class RdmaContext;
 class RdmaEndPoint;
 class TransferMetadata;
 class WorkerPool;
-class HeterogeneousRdmaTransport;
 
 class RdmaTransport : public Transport {
     friend class RdmaContext;
     friend class RdmaEndPoint;
     friend class WorkerPool;
-    friend class HeterogeneousRdmaTransport;
 
    public:
     using BufferDesc = TransferMetadata::BufferDesc;
