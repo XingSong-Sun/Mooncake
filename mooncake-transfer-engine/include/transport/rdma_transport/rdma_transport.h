@@ -44,6 +44,7 @@ class RdmaTransport : public Transport {
     friend class RdmaEndPoint;
     friend class WorkerPool;
     friend class HeterogeneousRdmaTransport;
+
    public:
     using BufferDesc = TransferMetadata::BufferDesc;
     using SegmentDesc = TransferMetadata::SegmentDesc;
