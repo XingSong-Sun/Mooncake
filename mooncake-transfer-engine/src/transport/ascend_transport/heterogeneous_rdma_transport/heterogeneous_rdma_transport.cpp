@@ -11,8 +11,9 @@ static constexpr int kDeviceMemoryLocationType = 1;
 bool isCpuMemory(void *addr) {
     aclrtPtrAttributes attributes{};
     if (int ret = aclrtPointerGetAttributes(addr, &attributes)) {
-        // If ACL cannot identify the pointer, it is not ACL-managed device
-        // memory, so treat it as regular CPU memory.
+        // If ACL cannot identify the pointer, 
+        // it is not ACL-managed device memory,
+        // so treat it as regular CPU memory.
         LOG(WARNING) << "aclrtPointerGetAttributes failed for addr " << addr
                      << ", ret: " << ret
                      << ". Treating as CPU memory.";
