@@ -57,6 +57,11 @@ if (USE_UBSHMEM)
   target_sources(transport PUBLIC $<TARGET_OBJECTS:ascend_transport>)
 endif()
 
+if (USE_CUDA_HETEROGENEOUS)
+  add_subdirectory(cuda_heterogeneous_transport)
+  target_sources(transport PUBLIC $<TARGET_OBJECTS:cuda_heterogeneous_transport>)
+endif()
+
 if (USE_EFA)
   add_subdirectory(efa_transport)
   target_sources(transport PUBLIC $<TARGET_OBJECTS:efa_transport>)

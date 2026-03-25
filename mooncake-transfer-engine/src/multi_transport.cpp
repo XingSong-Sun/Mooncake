@@ -36,6 +36,9 @@
 #ifdef USE_ASCEND_HETEROGENEOUS
 #include "transport/ascend_transport/heterogeneous_rdma_transport.h"
 #endif
+#ifdef USE_CUDA_HETEROGENEOUS
+#include "transport/cuda_heterogeneous_transport/cuda_heterogeneous_rdma_transport.h"
+#endif
 #ifdef USE_INTRA_NVLINK
 #include "transport/intranode_nvlink_transport/intranode_nvlink_transport.h"
 #endif
@@ -117,7 +120,7 @@ Status MultiTransport::submitTransfer(
         assert(transport);
         auto &task = batch_desc.task_list[task_id];
         task.batch_id = batch_id;
-#ifdef USE_ASCEND_HETEROGENEOUS
+#if defined(USE_ASCEND_HETEROGENEOUS) || defined(USE_CUDA_HETEROGENEOUS)
         task.request = const_cast<Transport::TransferRequest *>(&request);
 #else
         task.request = &request;
@@ -258,6 +261,11 @@ Transport *MultiTransport::installTransport(const std::string &proto,
         transport = new HeterogeneousRdmaTransport();
     }
 #endif
+#ifdef USE_CUDA_HETEROGENEOUS
+    else if (std::string(proto) == "cuda_hetero") {
+        transport = new CudaHeterogeneousRdmaTransport();
+    }
+#endif
 
 #ifdef USE_INTRA_NVLINK
     else if (std::string(proto) == "nvlink_intra") {
@@ -354,6 +362,14 @@ Status MultiTransport::selectTransport(const TransferRequest &entry,
     // - Initiator side uses heterogeneous_rdma_transport
     if (target_segment_desc->protocol == "rdma") {
         proto = "ascend";
+    }
+#endif
+#ifdef USE_CUDA_HETEROGENEOUS
+    // When USE_CUDA_HETEROGENEOUS is enabled:
+    // - Target side directly reuses RDMA Transport
+    // - Initiator side uses cuda_heterogeneous_rdma_transport
+    if (target_segment_desc->protocol == "rdma") {
+        proto = "cuda_hetero";
     }
 #endif
     if (!transport_map_.count(proto)) {

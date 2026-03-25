@@ -295,9 +295,9 @@ class Transport {
 #endif
 
         // record the origin request
-#ifdef USE_ASCEND_HETEROGENEOUS
-        // need to modify the request's source address, changing it from an NPU
-        // address to a CPU address.
+#if defined(USE_ASCEND_HETEROGENEOUS) || defined(USE_CUDA_HETEROGENEOUS)
+        // need to modify the request's source address, changing it from a
+        // device address to a CPU address.
         TransferRequest *request = nullptr;
 #else
         const TransferRequest *request = nullptr;

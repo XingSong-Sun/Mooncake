@@ -37,13 +37,11 @@ class RdmaContext;
 class RdmaEndPoint;
 class TransferMetadata;
 class WorkerPool;
-class HeterogeneousRdmaTransport;
 
 class RdmaTransport : public Transport {
     friend class RdmaContext;
     friend class RdmaEndPoint;
     friend class WorkerPool;
-    friend class HeterogeneousRdmaTransport;
    public:
     using BufferDesc = TransferMetadata::BufferDesc;
     using SegmentDesc = TransferMetadata::SegmentDesc;
@@ -72,7 +70,6 @@ class RdmaTransport : public Transport {
     int unregisterLocalMemoryBatch(
         const std::vector<void *> &addr_list) override;
 
-   private:
     // Internal version with force_sequential option to avoid nested parallelism
     int registerLocalMemoryInternal(void *addr, size_t length,
                                     const std::string &location,
