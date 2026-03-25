@@ -243,7 +243,7 @@ int TransferEngineImpl::init(const std::string& metadata_conn_string,
 #endif
 
 #if defined(USE_CXL) && !defined(USE_ASCEND) && \
-    !defined(USE_ASCEND_HETEROGENEOUS)
+    !defined(USE_ASCEND_HETEROGENEOUS) && !defined(USE_CUDA_HETEROGENEOUS)
     if (std::getenv("MC_CXL_DEV_PATH") != nullptr) {
         Transport* cxl_transport =
             multi_transports_->installTransport("cxl", local_topology_);
@@ -289,6 +289,13 @@ int TransferEngineImpl::init(const std::string& metadata_conn_string,
             LOG(ERROR) << "Failed to install Ascend transport";
             return -1;
         }
+#elif defined(USE_CUDA_HETEROGENEOUS)
+        Transport* cuda_hetero_transport =
+            multi_transports_->installTransport("cuda_hetero", local_topology_);
+        if (!cuda_hetero_transport) {
+            LOG(ERROR) << "Failed to install CUDA Heterogeneous transport";
+            return -1;
+        }
 #elif defined(USE_MACA)
 
         if (getenv("MC_MACA_HOST_TRANSPORT")) {
@@ -325,7 +332,6 @@ int TransferEngineImpl::init(const std::string& metadata_conn_string,
             }
             LOG(INFO) << "Using MACA transport";
         }
-
 #elif defined(USE_MNNVL) || defined(USE_INTRA_NVLINK)
 
         const char* force_mnnvl = getenv("MC_FORCE_MNNVL");
