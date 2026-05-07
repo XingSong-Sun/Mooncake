@@ -33,6 +33,10 @@
 #include <cuda_runtime.h>
 #endif
 
+#ifdef USE_CUDA_HETEROGENEOUS
+#include <cuda_runtime.h>
+#endif
+
 static void *(*allocateMemory)(size_t) = nullptr;
 static void (*freeMemory)(void *) = nullptr;
 static std::string g_protocol;

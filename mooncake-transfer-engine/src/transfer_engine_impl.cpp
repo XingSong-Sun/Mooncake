@@ -30,6 +30,9 @@
 #include "transfer_metadata_plugin.h"
 #include "transport/transport.h"
 #include "transport/barex_transport/barex_transport.h"
+#ifdef USE_CUDA_HETEROGENEOUS
+#include <cuda_runtime.h>
+#endif
 
 namespace mooncake {
 
@@ -250,11 +253,78 @@ int TransferEngineImpl::init(const std::string& metadata_conn_string,
             return -1;
         }
 #elif defined(USE_CUDA_HETEROGENEOUS)
-        Transport* cuda_hetero_transport =
-            multi_transports_->installTransport("cuda_hetero", local_topology_);
-        if (!cuda_hetero_transport) {
-            LOG(ERROR) << "Failed to install CUDA Heterogeneous transport";
-            return -1;
+        {
+            // Determine at runtime whether to use standard RDMA or the
+            // heterogeneous CUDA transport.  Detection priority:
+            //   1. MC_FORCE_RDMA=1        → always use rdma
+            //   2. MC_FORCE_CUDA_HETERO=1 → always use cuda_hetero
+            //   3. GPU name contains "GeForce" → consumer GPU → cuda_hetero
+            //   4. default → rdma
+            int device_id = -1;
+            if (cudaGetDevice(&device_id) != cudaSuccess || device_id < 0) {
+                LOG(WARNING) << "cudaGetDevice failed, falling back to device 0";
+                device_id = 0;
+            }
+
+            // Env var overrides
+            const bool force_rdma =
+                (getenv("MC_FORCE_RDMA") != nullptr &&
+                 std::string(getenv("MC_FORCE_RDMA")) == "1");
+            const bool force_hetero =
+                (getenv("MC_FORCE_CUDA_HETERO") != nullptr &&
+                 std::string(getenv("MC_FORCE_CUDA_HETERO")) == "1");
+
+            // Get GPU device name and GPUDirect RDMA attribute (info only)
+            cudaDeviceProp dev_prop;
+            std::string gpu_name = "Unknown";
+            if (cudaGetDeviceProperties(&dev_prop, device_id) == cudaSuccess) {
+                gpu_name = dev_prop.name;
+            }
+
+            // Determine whether this GPU is a consumer-grade card.
+            // "GeForce" GPUs (e.g. RTX 5090) do not support GPUDirect RDMA.
+            // Datacenter GPUs (L20, A100, H100, etc.) use standard RDMA.
+            const bool is_consumer_gpu =
+                (gpu_name.find("GeForce") != std::string::npos);
+
+            LOG(INFO) << "GPU device " << device_id << ": \"" << gpu_name
+                      << "\", is_consumer=" << is_consumer_gpu;
+
+            bool use_hetero = false;
+            if (force_rdma) {
+                LOG(INFO) << "[Transport Select] MC_FORCE_RDMA=1 → standard RdmaTransport";
+                use_hetero = false;
+            } else if (force_hetero) {
+                LOG(INFO) << "[Transport Select] MC_FORCE_CUDA_HETERO=1 → CudaHeterogeneousRdmaTransport";
+                use_hetero = true;
+            } else if (is_consumer_gpu) {
+                LOG(INFO) << "[Transport Select] Consumer GPU (\"" << gpu_name
+                          << "\") detected → CudaHeterogeneousRdmaTransport";
+                use_hetero = true;
+            } else {
+                LOG(INFO) << "[Transport Select] Datacenter GPU (\"" << gpu_name
+                          << "\") detected → standard RdmaTransport";
+                use_hetero = false;
+            }
+
+            if (use_hetero) {
+                Transport* cuda_hetero_transport =
+                    multi_transports_->installTransport("cuda_hetero",
+                                                       local_topology_);
+                if (!cuda_hetero_transport) {
+                    LOG(ERROR) << "Failed to install CUDA Heterogeneous transport";
+                    return -1;
+                }
+            } else {
+                LOG(INFO) << "GPU supports GPUDirect RDMA (device " << device_id
+                          << "), using standard RdmaTransport";
+                Transport* rdma_transport =
+                    multi_transports_->installTransport("rdma", local_topology_);
+                if (!rdma_transport) {
+                    LOG(ERROR) << "Failed to install RDMA transport";
+                    return -1;
+                }
+            }
         }
 #elif defined(USE_MNNVL) || defined(USE_INTRA_NVLINK)
 

@@ -365,10 +365,13 @@ Status MultiTransport::selectTransport(const TransferRequest &entry,
     }
 #endif
 #ifdef USE_CUDA_HETEROGENEOUS
-    // When USE_CUDA_HETEROGENEOUS is enabled:
-    // - Target side directly reuses RDMA Transport
-    // - Initiator side uses cuda_heterogeneous_rdma_transport
-    if (target_segment_desc->protocol == "rdma") {
+    // When USE_CUDA_HETEROGENEOUS is enabled, the actual transport used depends
+    // on whether the local GPU supports GPUDirect RDMA:
+    // - No GPUDirect (e.g. RTX 5090): cuda_hetero transport is installed
+    // - Has GPUDirect: normal rdma transport is installed
+    // We simply check which transport is available in transport_map_.
+    if (target_segment_desc->protocol == "rdma" &&
+        transport_map_.count("cuda_hetero")) {
         proto = "cuda_hetero";
     }
 #endif
