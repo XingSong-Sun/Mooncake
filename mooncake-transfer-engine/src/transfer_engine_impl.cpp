@@ -31,6 +31,7 @@
 #include "transport/transport.h"
 #ifdef USE_BAREX
 #include "transport/barex_transport/barex_transport.h"
+#endif
 #ifdef USE_CUDA_HETEROGENEOUS
 #include <cuda_runtime.h>
 #endif
